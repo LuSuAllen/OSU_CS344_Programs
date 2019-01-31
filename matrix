@@ -1,0 +1,284 @@
+#!/bin/bash
+
+#####################################################################
+# Auther: Zijing Huang
+# Class: CS344,	Assignment_1
+# Date: January 24th 2019
+# Discription: Preforms matrix opperations add, multiply, transpose,
+# and dimensions.
+#----------------------NOTE------------------------------------------
+# I do not explain the mathematical reason for some operations.
+# The reader must have a basic understanding of matrix operations to
+# fully comprehend things done in this script.
+#####################################################################
+
+
+#this is the function where it reads the first file
+
+function loadm1(){
+while read line
+do
+#  echo "$line"
+  m1_col=`echo $line|wc -w`
+  m1_row=`expr $m1_row + 1`
+  for i in $(seq 1 $m1_col)
+  do
+  tmp=`echo $line | cut -d" " -f$i`
+  m1[$m1_current]=$tmp
+  m1_current=`expr $m1_current + 1`
+  done
+done < "${matrix1:-/dev/stdin}"
+}
+
+
+
+#this is the function where it reads the second file
+
+function loadm2(){
+while read line
+do
+#  echo "$line"
+  m2_col=`echo $line|wc -w`
+  m2_row=`expr $m2_row + 1`
+  for i in $(seq 1 $m2_col)
+  do
+  tmp=`echo $line | cut -d" " -f$i`
+  m2[$m2_current]=$tmp
+  m2_current=`expr $m2_current + 1`
+  done
+done < "${matrix2:-/dev/stdin}"
+}
+
+
+
+#this is the function for checking the error of command input
+
+function check_arg(){
+  if [ $op == "add" ]
+  then
+    if [ $argnum == 3 ]
+    then
+      if [ -r $matrix1 ] && [ -r $matrix2 ]
+      then
+        error=""
+      else
+        error="file is not readable!"
+      fi
+    else
+      error="arg num is wrong!"
+    fi
+  elif [ $op == "multiply" ]
+  then
+    if [ $argnum == 3 ]
+    then
+      if [ -r $matrix1 ] && [ -r $matrix2 ]
+      then
+        error=""
+      else
+        error="file is not readable!"
+      fi
+    else
+      error="arg num is wrong!"
+    fi
+  else
+    if [ $argnum -gt 2 ]
+    then
+      error="too many args"
+    fi
+    if [ $argnum -eq 2 ]
+    then
+      if [ -r $matrix1 ]
+      then
+        error=""
+      else
+        error="file is not readable!"
+      fi
+    fi
+  fi
+  if [ -n "$error" ]
+  then
+    echo $error >&2
+    exit 2
+  fi
+}
+
+
+
+#this is the function for dimensions
+
+function dims(){
+  loadm1
+  echo $m1_row $m1_col
+}
+
+
+
+#if there is a error
+
+function print_arr(){
+  res=("$@")
+  printf -v output "\t%s" "${res[@]}"
+  output=${output:1}
+  printf "%s\n" "$output"
+}
+
+
+
+#function for transpose horizontal to vertical
+
+function transpose(){
+  loadm1
+  result=()
+  col=`expr $m1_col - 1`
+  row=`expr $m1_row - 1`
+  for i in $(seq 0 $col)
+  do
+    tmp=0
+    for j in $(seq 0 $row)
+    do
+      pos=`expr \( $j \* $m1_col \) + $i`
+      result[$j]=${m1[$pos]}
+    done
+    print_arr "${result[@]}"
+  done
+}
+
+
+
+#function for mean
+
+function mean(){
+  loadm1
+  result=()
+  col=`expr $m1_col - 1`
+  row=`expr $m1_row - 1`
+  for i in $(seq 0 $col)
+  do
+    tmp=0
+    for j in $(seq 0 $row)
+    do
+    pos=`expr \( $j \* $m1_col \) + $i`
+    #echo $pos
+    tmp=`expr $tmp + ${m1[$pos]}`
+    done
+    a=$tmp
+    b=$m1_row
+    c=1
+    if [ $a -lt 0 ]
+    then
+      c=-1
+    fi
+    result[$i]=`expr \( $a + \( $b / 2 \) \* $c \) / $b`
+    #result[$i]=`expr $tmp / $m1_row`
+  done
+  print_arr "${result[@]}"
+}
+
+
+
+#function for add
+
+function add(){
+  loadm1
+  loadm2
+  if [ $m1_col -ne $m2_col ] || [ $m2_row -ne $m2_row ]
+  then
+    echo "dims not match!" >&2
+    exit 3
+  fi
+  result=()
+  col=`expr $m1_col - 1`
+  row=`expr $m1_row - 1`
+  for i in $(seq 0 $row)
+  do
+    tmp=0
+    for j in $(seq 0 $col)
+    do
+      pos=`expr \( $i \* $m1_col \) + $j`
+      result[$j]=`expr ${m1[$pos]} + ${m2[$pos]}`
+    done
+    print_arr "${result[@]}"
+  done
+}
+
+
+
+#function for multiply
+
+function multiply(){
+  loadm1
+  loadm2
+  if [ $m1_col -ne $m2_row ]
+  then
+    echo "dims not match!" >&2
+    exit 3
+  fi
+  result=()
+  col1=`expr $m1_col - 1`
+  row1=`expr $m1_row - 1`
+  col2=`expr $m2_col - 1`
+  row2=`expr $m2_row - 1`
+  for i in $(seq 0 $row1)
+  do
+    for j in $(seq 0 $col2)
+    do
+      tmp=0
+      for k in $(seq 0 $col1)
+      do
+      p1=`expr \( $i \* $m1_col \) + $k`
+      p2=`expr \( $k \* $m2_col \) + $j`
+      s=`expr ${m1[$p1]} \* ${m2[$p2]}`
+      tmp=`expr $tmp + $s`
+      done
+      result[$j]=$tmp
+    done
+    print_arr "${result[@]}"
+  done
+}
+
+argnum=$#
+op=$1
+matrix1=$2
+m1_col=0
+m1_row=0
+m1=()
+m1_current=0
+
+matrix2=$3
+m2_col=0
+m2_row=0
+m2=()
+m2_current=0
+
+error=""
+
+
+
+#main function
+
+function main(){
+check_arg
+case $op in
+"dims")
+    dims
+    ;;
+"transpose")
+    transpose
+    ;;
+"mean")
+    mean
+    ;;
+"add")
+    add
+    ;;
+"multiply")
+    multiply
+    ;;
+*)
+    echo "unknown operation" >&2
+    exit 2
+    ;;
+esac
+}
+
+main
